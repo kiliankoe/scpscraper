@@ -6,24 +6,53 @@ from bs4 import BeautifulSoup
 def get_single_scp(scp_id):
     """Returns soup for a given SCP item number."""
 
-    if len(str(scp_id)) == 1:
-        scp_id = '00' + str(scp_id)
-    elif len(str(scp_id)) == 2:
-        scp_id = '0' + str(scp_id)
-
     try:
         r = requests.get(url='http://www.scp-wiki.net/scp-' + str(scp_id))
         if r.status_code == 200:
             return BeautifulSoup(r.content)
         else:
             print('Failed to access SCP Wiki page. HTTP Status Code ' + str(r.status_code))
-            return None
+            return
     except requests.RequestException as e:
         print('Failed to access SCP Wiki page. Request Error: ' + e)
-        return None
+        return
 
 
-def parse_scp(soup):
+def get_scp_name(scp_id):
+    # get the name (which unfortunately isn't listed on the single page)
+    try:
+        if int(scp_id) < 1000:
+            # Series I
+            url = 'http://www.scp-wiki.net/scp-series'
+        elif int(scp_id) < 2000:
+            # Series II
+            url = 'http://www.scp-wiki.net/scp-series-2'
+        elif int(scp_id) < 3000:
+            # Series III
+            url = 'http://www.scp-wiki.net/scp-series-3'
+        else:
+            # Series XXX
+            print('Unavailable SCP Series')
+            return
+
+        r = requests.get(url=url)
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.content)
+            content = soup.find('div', id='page-content')
+            list_elements = content.find_all('li')
+            for li in list_elements:
+                if re.findall('[0-9]+', li.next['href']):
+                    if int(re.findall('[0-9]+', li.next['href'])[0]) == scp_id:
+                        return re.split(' - ', li.get_text())[-1]
+        else:
+            print('Failed to access SCP Wiki page. HTTP Status Code ' + str(r.status_code))
+            return
+    except requests.RequestException as e:
+        print('Failed to access SCP Wiki page. Request Error: ' + e)
+        return
+
+
+def parse_scp(soup, scp_id):
 
     if soup is None:
         return None
@@ -32,7 +61,7 @@ def parse_scp(soup):
     try:
         rating = soup.find('span', {'class': 'rate-points'}).contents[1].contents[0].replace('+', '')
     except AttributeError:
-        print('no rating found')
+        # print('no rating found')
         rating = 0
 
     # get the content block
@@ -42,14 +71,14 @@ def parse_scp(soup):
     try:
         main_image = content.find('div', {'class': 'scp-image-block'}).contents[0]['src']
     except AttributeError:
-        print('no main_image found')
+        # print('no main_image found')
         main_image = None
 
     # get the image caption
     try:
         image_caption = content.find('div', {'class': 'scp-image-block'}).contents[2].contents[1].contents[0]
     except AttributeError:
-        print('no image_caption found')
+        # print('no image_caption found')
         image_caption = None
 
     # get main content
@@ -68,7 +97,7 @@ def parse_scp(soup):
             mapping[key] = value
         mapping.pop(None)
     except AttributeError:
-        print('can\'t parse content')
+        # print('can\'t parse content')
         mapping = None
 
     # get page info
@@ -79,6 +108,7 @@ def parse_scp(soup):
     # TODO: get the tags, link to the discussion page, other stuff?
 
     return {
+        'id': scp_id,
         'rating': int(rating),
         'image': {
             'src': main_image,
@@ -90,4 +120,32 @@ def parse_scp(soup):
     }
 
 
-print(parse_scp(get_single_scp(678)))
+def scp(scp_id):
+
+    if len(str(scp_id)) == 1:
+        scp_id = '00' + str(scp_id)
+    elif len(str(scp_id)) == 2:
+        scp_id = '0' + str(scp_id)
+
+    scp_name = get_scp_name(int(scp_id))
+    site_content = get_single_scp(str(scp_id))
+    parsed_content = parse_scp(site_content, int(scp_id))
+
+    parsed_content['name'] = scp_name
+    print(scp_name)
+
+    return parsed_content
+
+
+# print(json.dumps(parse_scp(get_single_scp(1591))))
+
+# list = []
+# for i in range(2, 100):
+#     try:
+#         list.append(parse_scp(get_single_scp(i)))
+#     except:
+#         continue
+# print(json.dumps(list))
+
+print(scp(2))
+
