@@ -105,7 +105,12 @@ def parse_scp(soup, scp_id):
     revision = re.findall('\d+', page_info.next)[0]
     last_updated = page_info.find('span')['class'][1].replace('time_', '')
 
-    # TODO: get the tags, link to the discussion page, other stuff?
+    # get the tags
+    tags_list = soup.find('div', {'class': 'page-tags'}).find('span')
+    tags = [tag.string for tag in tags_list if tag.string != '\n']
+
+    # get a link to the discussion page
+    discussion_link = 'http://www.scp-wiki.net' + soup.find('a', id='discuss-button')['href']
 
     return {
         'id': scp_id,
@@ -116,28 +121,31 @@ def parse_scp(soup, scp_id):
         },
         'content': mapping,
         'revision': int(revision),
-        'last_edited': int(last_updated)
+        'last_edited': int(last_updated),
+        'tags': tags,
+        'discussion': discussion_link
     }
 
 
 def scp(scp_id):
+    """
+    Returns a dictionary with as much content as possible regarding the SCP ID.
+    :param scp_id: Either a string with the established format (002) or an integer (2)
+    """
 
-    if len(str(scp_id)) == 1:
-        scp_id = '00' + str(scp_id)
-    elif len(str(scp_id)) == 2:
-        scp_id = '0' + str(scp_id)
+    if len(str(int(scp_id))) == 1:
+        scp_id = '00' + str(int(scp_id))
+    elif len(str(int(scp_id))) == 2:
+        scp_id = '0' + str(int(scp_id))
 
     scp_name = get_scp_name(int(scp_id))
     site_content = get_single_scp(str(scp_id))
     parsed_content = parse_scp(site_content, int(scp_id))
 
     parsed_content['name'] = scp_name
-    print(scp_name)
 
     return parsed_content
 
-
-# print(json.dumps(parse_scp(get_single_scp(1591))))
 
 # list = []
 # for i in range(2, 100):
@@ -147,5 +155,5 @@ def scp(scp_id):
 #         continue
 # print(json.dumps(list))
 
-print(scp(2))
+print(scp('002'))
 
